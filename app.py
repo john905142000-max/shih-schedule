@@ -95,6 +95,36 @@ class ScheduleAppHandler(BaseHTTPRequestHandler):
                     self.send_json({'status': 'error', 'message': f'同步錯誤: {e}'}, status=500)
                 return
 
+            # API: All Courses from DB
+            if path == '/api/courses':
+                conn = get_db()
+                cursor = conn.cursor()
+                cursor.execute('SELECT * FROM courses ORDER BY date ASC, period ASC')
+                rows = cursor.fetchall()
+                conn.close()
+                courses_list = []
+                for c in rows:
+                    p = c['period']
+                    courses_list.append({
+                        'id': c['id'],
+                        'week_str': c['week_str'],
+                        'week_num': c['week_num'],
+                        'date': c['date'],
+                        'day': c['day'],
+                        'period': p,
+                        'subject': c['subject'],
+                        'class_name': c['class_name'],
+                        'raw_text': c['raw_text'],
+                        'is_substitute': bool(c['is_substitute']),
+                        'is_concurrent': bool(c['is_concurrent']) or ('(兼)' in (c['raw_text'] or '')) or ('(兼)' in (c['subject'] or '')),
+                        'is_adjusted': bool(c['is_adjusted']),
+                        'note': c['adjust_note'] if c['is_adjusted'] else '',
+                        'is_period_8': (p == 8) or ('(輔)' in (c['raw_text'] or '')),
+                        'is_morning_remedial': (p == 0 and not bool(c['is_concurrent']))
+                    })
+                self.send_json({'status': 'ok', 'courses': courses_list})
+                return
+
             # 3. API: Available Months
             if path == '/api/months':
                 months = get_available_months()
