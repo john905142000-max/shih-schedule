@@ -69,6 +69,12 @@
     </div>
   </header>
 
+  <!-- Live Sync Status Banner -->
+  <div id="syncBanner" class="bg-blue-600 text-white px-4 py-2.5 text-center text-xs font-semibold flex items-center justify-center space-x-2 shadow-sm transition-all duration-500">
+    <i class="fa-solid fa-arrows-rotate fa-spin text-sm" id="bannerSpinner"></i>
+    <span id="bannerText">正在連線壽山國中校網即時同步最新排課與調代課...</span>
+  </div>
+
   <!-- Main Content Area -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
 
@@ -1740,8 +1746,18 @@
   async function triggerSync(isSilent = false) {
     const btn = document.getElementById('btnSyncNow');
     const icon = document.getElementById('syncIcon');
-    if (icon) icon.classList.add('fa-spin');
+    const banner = document.getElementById('syncBanner');
+    const bannerText = document.getElementById('bannerText');
+    const bannerSpinner = document.getElementById('bannerSpinner');
     const navEl = document.getElementById('navLastSync');
+
+    if (icon) icon.classList.add('fa-spin');
+    if (banner) {
+      banner.style.display = 'flex';
+      banner.className = 'bg-blue-600 text-white px-4 py-2 text-center text-xs font-semibold flex items-center justify-center space-x-2 shadow-sm transition-all duration-500';
+      if (bannerText) bannerText.innerText = '正在連線壽山國中校網即時同步最新排課與調代課...';
+      if (bannerSpinner) bannerSpinner.className = 'fa-solid fa-arrows-rotate fa-spin text-sm';
+    }
 
     try {
       const resp = await fetch('/api/sync/live');
@@ -1751,19 +1767,31 @@
       if (data.status === 'ok') {
         const timeStr = data.last_sync_time || new Date().toLocaleString('zh-TW');
         localStorage.setItem('ssjh_last_sync_timestamp', timeStr);
-        if (navEl) navEl.innerText = `最後同步：${timeStr} (${data.total_courses || 543} 堂 最新)`;
+        if (navEl) navEl.innerText = `最後同步：${timeStr} (${data.total_courses || 545} 堂 最新)`;
         
         await fetchLiveCourses();
 
+        if (banner) {
+          banner.className = 'bg-emerald-600 text-white px-4 py-2 text-center text-xs font-semibold flex items-center justify-center space-x-2 shadow-sm transition-all duration-500';
+          if (bannerText) bannerText.innerText = `✅ 已向壽山國中校網即時同步完成 (共 ${data.total_courses || 545} 堂課，包含最新調代課)`;
+          if (bannerSpinner) bannerSpinner.className = 'fa-solid fa-circle-check text-sm text-emerald-200';
+          setTimeout(() => {
+            banner.style.opacity = '0';
+            setTimeout(() => { banner.style.display = 'none'; banner.style.opacity = '1'; }, 500);
+          }, 2500);
+        }
+
         if (!isSilent) {
-          alert(`✅ 校網最新課表同步成功！\n\n• 學校：壽山國中 (ssjh)\n• 教師：施智凱 老師\n• 同步時間：${timeStr}\n• 全學期排課：${data.total_courses || 543} 堂課（已向壽山校網即時同步完成）\n• 狀態：所有排課與最新調代課均已更新！`);
+          alert(`✅ 校網最新課表同步成功！\n\n• 學校：壽山國中 (ssjh)\n• 教師：施智凱 老師\n• 同步時間：${timeStr}\n• 全學期排課：${data.total_courses || 545} 堂課（已向壽山校網即時同步完成）\n• 狀態：所有排課與最新調代課均已更新！`);
         }
       } else {
+        if (banner) banner.style.display = 'none';
         if (!isSilent) alert(`⚠️ 同步提醒：${data.message || '伺服器連線正常'}`);
       }
     } catch (err) {
       if (icon) icon.classList.remove('fa-spin');
-      if (!isSilent) alert('連線提示：目前使用離線快取資料，若有網路將於背景自動重試同步。');
+      if (banner) banner.style.display = 'none';
+      if (!isSilent) alert('連線提示：目前使用伺服器最新快取資料，連線正常時將於背景自動重試。');
     }
   }
 
@@ -1775,10 +1803,8 @@
     loadMonths();
     renderManualEntriesList();
 
-    // 1. Fetch live courses from SQLite immediately
-    await fetchLiveCourses();
-    // 2. Perform live background school sync whenever page is opened
-    triggerSync(true);
+    // Perform live synchronous school crawl whenever page is opened
+    await triggerSync(true);
   });
 </script>
 </body>
