@@ -161,7 +161,7 @@ class ScheduleAppHandler(BaseHTTPRequestHandler):
                             'is_substitute': bool(c['is_substitute']),
                             'is_concurrent': bool(c['is_concurrent']) or ('(兼)' in (c['raw_text'] or '')) or ('(兼)' in (c['subject'] or '')),
                             'is_adjusted': bool(c['is_adjusted']),
-                            'adjust_note': c['note'] if c['is_adjusted'] else '',
+                            'adjust_note': c['adjust_note'] if c['is_adjusted'] else '',
                             'is_period_8': (p == 8) or ('(輔)' in (c['raw_text'] or '')),
                             'is_morning_remedial': (p == 0 and not bool(c['is_concurrent']))
                         }
@@ -198,7 +198,7 @@ class ScheduleAppHandler(BaseHTTPRequestHandler):
                         'is_substitute': bool(c['is_substitute']),
                         'is_concurrent': bool(c['is_concurrent']) or ('(兼)' in (c['raw_text'] or '')) or ('(兼)' in (c['subject'] or '')),
                         'is_adjusted': bool(c['is_adjusted']),
-                        'adjust_note': c['note'] if c['is_adjusted'] else '',
+                        'adjust_note': c['adjust_note'] if c['is_adjusted'] else '',
                         'is_period_8': (p == 8) or ('(輔)' in (c['raw_text'] or '')),
                         'is_morning_remedial': (p == 0 and not bool(c['is_concurrent']))
                     })
