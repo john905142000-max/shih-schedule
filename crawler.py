@@ -24,27 +24,41 @@ class SchoolCrawler:
         self.opener.addheaders = [
             ('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
         ]
-        self.opener.open(f'{BASE_URL}/ssjh/termRT', timeout=10)
-        login_payload = urllib.parse.urlencode({
-            'j_username': self.username,
-            'j_password': self.password
-        }).encode('utf-8')
-        req = urllib.request.Request(LOGIN_URL, data=login_payload)
-        self.opener.open(req, timeout=10)
-        return True
+        for attempt in range(3):
+            try:
+                self.opener.open(f'{BASE_URL}/ssjh/termRT', timeout=20)
+                login_payload = urllib.parse.urlencode({
+                    'j_username': self.username,
+                    'j_password': self.password
+                }).encode('utf-8')
+                req = urllib.request.Request(LOGIN_URL, data=login_payload)
+                self.opener.open(req, timeout=20)
+                return True
+            except Exception as e:
+                if attempt == 2:
+                    raise e
+                time.sleep(1)
 
     def fetch_week(self, week_str):
         if not self.opener:
             self.login()
         url = f'{BASE_URL}/ssjh/teacherRTAjax?teacherNo={self.teacher_no}&thisWeek={week_str}&classNo=0'
-        try:
-            resp = self.opener.open(url, timeout=8)
-            raw = resp.read()
-        except urllib.error.HTTPError:
-            # Re-login if session expired
-            self.login()
-            resp = self.opener.open(url, timeout=8)
-            raw = resp.read()
+        raw = None
+        for attempt in range(3):
+            try:
+                resp = self.opener.open(url, timeout=20)
+                raw = resp.read()
+                break
+            except Exception:
+                try:
+                    self.login()
+                    resp = self.opener.open(url, timeout=20)
+                    raw = resp.read()
+                    break
+                except Exception as e:
+                    if attempt == 2:
+                        raise e
+                    time.sleep(1)
 
         try:
             xml_str = raw.decode('utf-8')
