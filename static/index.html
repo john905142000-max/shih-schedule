@@ -977,13 +977,47 @@
     return `${year}-${month}-${day}`;
   }
 
+  function boolSafe(v) {
+    return v === true || v === 1 || v === '1' || v === 'true';
+  }
+
+  function isSubCourse(c) {
+    if (!c) return false;
+    const raw = (c.raw_text || '') + ' ' + (c.subject || '') + ' ' + (c.note || '') + ' ' + (c.course_type || '');
+    return boolSafe(c.is_substitute) || c.course_type === 'substitute' || raw.includes('[代]') || raw.includes('[自代]') || raw.includes('[公代]') || raw.includes('代課');
+  }
+
+  function isConcurrentCourse(c) {
+    if (!c) return false;
+    const raw = (c.raw_text || '') + ' ' + (c.subject || '') + ' ' + (c.note || '') + ' ' + (c.course_type || '');
+    return boolSafe(c.is_concurrent) || c.course_type === 'concurrent' || raw.includes('(兼)') || raw.includes('[兼]');
+  }
+
+  function isAdjustedCourse(c) {
+    if (!c) return false;
+    const raw = (c.raw_text || '') + ' ' + (c.subject || '') + ' ' + (c.note || '') + ' ' + (c.course_type || '');
+    return boolSafe(c.is_adjusted) || c.course_type === 'adjusted' || raw.includes('[調');
+  }
+
+  function isPeriod8Course(c) {
+    if (!c) return false;
+    const raw = (c.raw_text || '') + ' ' + (c.subject || '') + ' ' + (c.note || '') + ' ' + (c.course_type || '');
+    return c.period === 8 || boolSafe(c.is_period_8) || c.course_type === 'period_8' || c.course_type === 'eighth_period' || raw.includes('(輔)') || raw.includes('理化(輔)');
+  }
+
+  function isRemedialCourse(c) {
+    if (!c) return false;
+    const raw = (c.raw_text || '') + ' ' + (c.subject || '') + ' ' + (c.note || '') + ' ' + (c.course_type || '');
+    return boolSafe(c.is_morning_remedial) || c.course_type === 'remedial' || c.course_type === 'morning_remedial' || (c.period === 0 && !isConcurrentCourse(c)) || raw.includes('學習扶助');
+  }
+
   function isCourseCanceled(c, st, canceledMap) {
     const courseKey = c.is_manual ? `manual_${c.id}` : `${c.date}_p${c.period}`;
     if (canceledMap[courseKey]) return true;
 
     // Check start and end date range settings
-    const isMorning = c.course_type === 'remedial' || c.course_type === 'morning_remedial' || (c.period === 0 && c.is_concurrent !== 1);
-    const isP8 = c.course_type === 'eighth_period' || c.course_type === 'period_8' || c.period === 8;
+    const isMorning = isRemedialCourse(c);
+    const isP8 = isPeriod8Course(c);
 
     if (isMorning) {
       if (st.remedial_start_date && c.date < st.remedial_start_date) return true;
@@ -1019,11 +1053,11 @@
     document.getElementById('todayClassCount').innerText = `今日共 ${coursesToday.length} 堂課`;
 
     coursesToday.forEach(c => {
-      const isMorning = c.course_type === 'remedial' || c.course_type === 'morning_remedial' || (c.period === 0 && c.is_concurrent !== 1);
-      const isCon = c.is_concurrent === 1 || (c.subject && (c.subject.includes('(兼)') || c.subject.includes('[兼]')));
-      const isSub = c.is_substitute === 1 || c.course_type === 'substitute';
-      const isP8 = c.course_type === 'eighth_period' || c.course_type === 'period_8' || c.period === 8;
-      const isAdj = c.course_type === 'adjusted' || c.is_adjusted === 1;
+      const isMorning = isRemedialCourse(c);
+      const isCon = isConcurrentCourse(c);
+      const isSub = isSubCourse(c);
+      const isP8 = isPeriod8Course(c);
+      const isAdj = isAdjustedCourse(c);
       const canceled = isCourseCanceled(c, st, canceledMap);
       const courseKey = c.is_manual ? `manual_${c.id}` : `${c.date}_p${c.period}`;
 
@@ -1042,7 +1076,11 @@
         badge = `<span class="px-1.5 py-0.5 rounded bg-amber-400 text-amber-950 text-[10px] font-bold">調課</span>`;
         cardBg = 'bg-amber-500/20 border border-amber-300/30';
       } else if (isSub) {
-        badge = `<span class="px-1.5 py-0.5 rounded bg-teal-400 text-teal-950 text-[10px] font-bold">臨時代課</span>`;
+        let subTitle = '臨時代課';
+        const raw = (c.raw_text || '') + ' ' + (c.subject || '');
+        if (raw.includes('[自代]')) subTitle = '代課 [自代]';
+        else if (raw.includes('[公代]')) subTitle = '代課 [公代]';
+        badge = `<span class="px-1.5 py-0.5 rounded bg-teal-400 text-teal-950 text-[10px] font-bold">${subTitle}</span>`;
         cardBg = 'bg-teal-500/20 border border-teal-300/30';
       } else if (isP8) {
         badge = `<span class="px-1.5 py-0.5 rounded bg-purple-400 text-purple-950 text-[10px] font-bold">第8節</span>`;
@@ -1143,11 +1181,11 @@
         const todayCellBg = isToday ? 'bg-blue-50/30' : '';
 
         if (cell) {
-          const isMorning = cell.course_type === 'remedial' || cell.course_type === 'morning_remedial' || (cell.period === 0 && cell.is_concurrent !== 1);
-          const isCon = cell.is_concurrent === 1 || (cell.subject && (cell.subject.includes('(兼)') || cell.subject.includes('[兼]')));
-          const isSub = cell.is_substitute === 1 || cell.course_type === 'substitute';
-          const isP8 = cell.course_type === 'eighth_period' || cell.course_type === 'period_8' || cell.period === 8;
-          const isAdj = cell.course_type === 'adjusted' || cell.is_adjusted === 1;
+          const isMorning = isRemedialCourse(cell);
+          const isCon = isConcurrentCourse(cell);
+          const isSub = isSubCourse(cell);
+          const isP8 = isPeriod8Course(cell);
+          const isAdj = isAdjustedCourse(cell);
           const canceled = isCourseCanceled(cell, st, canceledMap);
           const courseKey = cell.is_manual ? `manual_${cell.id}` : `${cell.date}_p${cell.period}`;
 
@@ -1169,8 +1207,12 @@
             bg = 'bg-amber-50 border-amber-300 text-amber-950';
             badge = `<span class="px-1.5 py-0.5 rounded bg-amber-200 text-amber-900 text-[10px] font-bold block mb-1">調課</span>`;
           } else if (isSub) {
-            bg = 'bg-teal-50 border-teal-300 text-teal-950';
-            badge = `<span class="px-1.5 py-0.5 rounded bg-teal-200 text-teal-900 text-[10px] font-bold block mb-1">代課 ($455)</span>`;
+            let subTitle = '臨時代課';
+            const raw = (cell.raw_text || '') + ' ' + (cell.subject || '');
+            if (raw.includes('[自代]')) subTitle = '代課 [自代]';
+            else if (raw.includes('[公代]')) subTitle = '代課 [公代]';
+            bg = 'bg-teal-50 border-teal-400 text-teal-950';
+            badge = `<span class="px-1.5 py-0.5 rounded bg-teal-600 text-white text-[10px] font-bold block mb-1">${subTitle} ($455)</span>`;
           } else if (isP8) {
             bg = 'bg-purple-50 border-purple-300 text-purple-950';
             badge = `<span class="px-1.5 py-0.5 rounded bg-purple-200 text-purple-900 text-[10px] font-bold block mb-1">第8節 ($540)</span>`;
@@ -1257,11 +1299,11 @@
     const breakdown = [];
 
     monthCourses.forEach(c => {
-      const isMorning = c.course_type === 'remedial' || c.course_type === 'morning_remedial' || (c.period === 0 && c.is_concurrent !== 1);
-      const isCon = c.is_concurrent === 1 || (c.subject && (c.subject.includes('(兼)') || c.subject.includes('[兼]')));
-      const isSub = c.is_substitute === 1 || c.course_type === 'substitute';
-      const isP8 = c.course_type === 'eighth_period' || c.course_type === 'period_8' || c.period === 8;
-      const isAdj = c.course_type === 'adjusted' || c.is_adjusted === 1;
+      const isMorning = isRemedialCourse(c);
+      const isCon = isConcurrentCourse(c);
+      const isSub = isSubCourse(c);
+      const isP8 = isPeriod8Course(c);
+      const isAdj = isAdjustedCourse(c);
       const canceled = isCourseCanceled(c, st, canceledMap);
       const courseKey = c.is_manual ? `manual_${c.id}` : `${c.date}_p${c.period}`;
 
@@ -1285,7 +1327,12 @@
           conTotal += rate;
         }
       } else if (isSub) {
-        tag = c.is_manual ? '手動代課 (補登)' : '臨時代課';
+        let subTitle = '臨時代課';
+        const raw = (c.raw_text || '') + ' ' + (c.subject || '');
+        if (c.is_manual) subTitle = '手動代課 (補登)';
+        else if (raw.includes('[自代]')) subTitle = '代課 [自代]';
+        else if (raw.includes('[公代]')) subTitle = '代課 [公代]';
+        tag = subTitle;
         badge_color = 'bg-teal-100 text-teal-800 border-teal-300';
         rate = c.amount || subRate;
         if (!canceled) {
